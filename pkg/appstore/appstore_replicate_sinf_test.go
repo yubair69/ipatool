@@ -198,4 +198,40 @@ var _ = Describe("AppStore (ReplicateSinf)", func() {
 			Expect(err).To(HaveOccurred())
 		})
 	})
+
+	When("app does not include manifest and SINF list is empty", func() {
+		BeforeEach(func() {
+			mockOS.EXPECT().
+				OpenFile(gomock.Any(), gomock.Any(), gomock.Any()).
+				DoAndReturn(os.OpenFile)
+
+			mockOS.EXPECT().
+				Remove(testFile.Name()).
+				Return(nil)
+
+			mockOS.EXPECT().
+				Rename(fmt.Sprintf("%s.tmp", testFile.Name()), testFile.Name()).
+				Return(nil)
+
+			w, err := testZip.Create("Payload/Test.app/Info.plist")
+			Expect(err).ToNot(HaveOccurred())
+
+			info, err := plist.Marshal(map[string]interface{}{
+				"CFBundleExecutable": "Test",
+			}, plist.BinaryFormat)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = w.Write(info)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("returns error and does not panic", func() {
+			err := as.ReplicateSinf(ReplicateSinfInput{
+				PackagePath: testFile.Name(),
+				Sinfs:       []Sinf{},
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no SINF data available"))
+		})
+	})
 })

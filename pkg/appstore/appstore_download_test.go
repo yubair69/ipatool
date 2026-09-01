@@ -774,4 +774,131 @@ var _ = Describe("AppStore (Download)", func() {
 			Expect(err.Error()).To(ContainSubstring("XROS"))
 		})
 	})
+
+	Describe("Resumable downloads", func() {
+		It("seeks to end of file for non-interactive downloads", func() {
+			mockHTTPClient := http.NewMockClient[interface{}](GinkgoT())
+			mockOS := operatingsystem.NewMockOperatingSystem(GinkgoT())
+
+			// Mock file that has 1000 bytes already downloaded
+			mockFile := &mockFileWithSeek{size: 1000, pos: 0}
+
+			mockHTTPClient.EXPECT().
+				NewRequest("GET", gomock.Any(), nil).
+				Return(&gohttp.Request{Header: map[string][]string{}}, nil)
+
+			mockOS.EXPECT().
+				OpenFile(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(mockFile, nil)
+
+			mockOS.EXPECT().
+				Stat(gomock.Any()).
+				Return(&dummyFileInfo{}, nil)
+
+			// Simulate partial file response with remaining content
+			responseBody := io.NopCloser(strings.NewReader("remaining data"))
+			mockHTTPClient.EXPECT().
+				Do(gomock.Any()).
+				Return(&gohttp.Response{
+					Body:          responseBody,
+					ContentLength: 14,
+				}, nil).
+				Do(func(req *gohttp.Request) {
+					// Verify that Range header was set for resume
+					Expect(req.Header.Get("range")).To(Equal("bytes=1000-"))
+				})
+
+			as := &appstore{
+				httpClient: mockHTTPClient,
+				os:         mockOS,
+			}
+
+			err := as.downloadFile("http://example.com/app.ipa", "test.ipa.tmp", nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify file was seeked to end before writing
+			Expect(mockFile.seekPositions).To(ContainElement(int64(1000)))
+		})
+
+		It("seeks to end of file for interactive downloads with progress bar", func() {
+			ctrl := gomock.NewController(GinkgoT())
+			defer ctrl.Finish()
+
+			mockHTTPClient := http.NewMockClient[interface{}](ctrl)
+			mockOS := operatingsystem.NewMockOperatingSystem(ctrl)
+
+			mockFile := &mockFileWithSeek{size: 500, pos: 0}
+
+			mockHTTPClient.EXPECT().
+				NewRequest("GET", gomock.Any(), nil).
+				Return(&gohttp.Request{Header: map[string][]string{}}, nil)
+
+			mockOS.EXPECT().
+				OpenFile(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(mockFile, nil)
+
+			mockOS.EXPECT().
+				Stat(gomock.Any()).
+				Return(&dummyFileInfo{}, nil)
+
+			responseBody := io.NopCloser(strings.NewReader("more data"))
+			mockHTTPClient.EXPECT().
+				Do(gomock.Any()).
+				Return(&gohttp.Response{
+					Body:          responseBody,
+					ContentLength: 9,
+				}, nil)
+
+			as := &appstore{
+				httpClient: mockHTTPClient,
+				os:         mockOS,
+			}
+
+			bar := progressbar.NewOptions64(1)
+			err := as.downloadFile("http://example.com/app.ipa", "test.ipa.tmp", bar)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify file was seeked to end
+			Expect(mockFile.seekPositions).To(ContainElements(int64(500), int64(500)))
+		})
+	})
 })
+
+type mockFileWithSeek struct {
+	size           int64
+	pos            int64
+	seekPositions  []int64
+	readCloser     io.ReadCloser
+	writeCloser    io.WriteCloser
+	lastSeekOffset int64
+	lastSeekWhence int
+}
+
+func (m *mockFileWithSeek) Read(p []byte) (n int, err error) {
+	return 0, nil
+}
+
+func (m *mockFileWithSeek) Write(p []byte) (n int, err error) {
+	n = len(p)
+	m.pos += int64(n)
+	return n, nil
+}
+
+func (m *mockFileWithSeek) Seek(offset int64, whence int) (int64, error) {
+	m.lastSeekOffset = offset
+	m.lastSeekWhence = whence
+	if whence == io.SeekEnd {
+		m.pos = m.size
+		m.seekPositions = append(m.seekPositions, m.size)
+		return m.size, nil
+	}
+	if whence == io.SeekCurrent {
+		m.seekPositions = append(m.seekPositions, m.pos)
+		return m.pos, nil
+	}
+	return offset, nil
+}
+
+func (m *mockFileWithSeek) Close() error {
+	return nil
+}

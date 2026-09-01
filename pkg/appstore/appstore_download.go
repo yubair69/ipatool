@@ -227,17 +227,25 @@ func (t *appstore) downloadFile(src, dst string, progress *progressbar.ProgressB
 	}
 	defer res.Body.Close()
 
+	// Seek to end of file for resume, whether interactive or not.
+	// Servers may ignore Range requests and return 200 OK with full content.
+	// Seeking ensures we append at the correct position in both cases.
+	_, err = file.Seek(0, io.SeekEnd)
+	if err != nil {
+		return fmt.Errorf("can not seek file: %w", err)
+	}
+
+	currentSize, err := file.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return fmt.Errorf("can not get file position: %w", err)
+	}
+
 	if progress != nil {
-		progress.ChangeMax64(res.ContentLength + stat.Size())
-		err = progress.Set64(stat.Size())
+		progress.ChangeMax64(res.ContentLength + currentSize)
+		err = progress.Set64(currentSize)
 
 		if err != nil {
 			return fmt.Errorf("can not set bar progress: %w", err)
-		}
-
-		_, err = file.Seek(0, io.SeekEnd)
-		if err != nil {
-			return fmt.Errorf("can not seek file: %w", err)
 		}
 
 		_, err = io.Copy(io.MultiWriter(file, progress), res.Body)

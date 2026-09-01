@@ -19,6 +19,15 @@ func ListVersionsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list-versions",
 		Short: "List the available versions of an iOS app",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if appID == 0 && bundleID == "" {
+				return errors.New("either the app ID or the bundle identifier must be specified")
+			}
+			if appID < 0 {
+				return errors.New("app ID must be a positive number")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if appID == 0 && bundleID == "" {
 				return errors.New("either the app ID or the bundle identifier must be specified")

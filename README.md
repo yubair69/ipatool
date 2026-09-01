@@ -119,7 +119,7 @@ Global Flags:
       --verbose                      enables verbose logs
 ```
 
-To obtain a list of availble app versions to download, use the `list-versions` command.
+To obtain a list of available app versions to download, use the `list-versions` command.
 
 ```
 List the available versions of an iOS app
@@ -205,3 +205,7 @@ $ go test -v ./...
 ## License
 
 IPATool is released under the [MIT license](https://github.com/majd/ipatool/blob/main/LICENSE).
+
+## Contributors
+
+Thank you to [yubair69](https://github.com/yubair69) for contributions to this project.

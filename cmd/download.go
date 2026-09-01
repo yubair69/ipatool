@@ -25,6 +25,15 @@ func downloadCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "download",
 		Short: "Download (encrypted) iOS, iPadOS, tvOS, and visionOS app packages from the App Store",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if appID == 0 && bundleID == "" {
+				return errors.New("either the app ID or the bundle identifier must be specified")
+			}
+			if appID < 0 {
+				return errors.New("app ID must be a positive number")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if appID == 0 && bundleID == "" {
 				return errors.New("either the app ID or the bundle identifier must be specified")

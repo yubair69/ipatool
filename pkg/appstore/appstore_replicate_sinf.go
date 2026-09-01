@@ -146,6 +146,10 @@ func (*appstore) replicateSinfFromManifest(manifest packageManifest, zip *zip.Wr
 }
 
 func (t *appstore) replicateSinfFromInfo(info packageInfo, zip *zip.Writer, sinfs []Sinf, bundleName string) error {
+	if len(sinfs) == 0 {
+		return fmt.Errorf("failed to replicate sinf: %w", errors.New("no SINF data available"))
+	}
+
 	sp := fmt.Sprintf("Payload/%s.app/SC_Info/%s.sinf", bundleName, info.BundleExecutable)
 
 	file, err := zip.Create(sp)

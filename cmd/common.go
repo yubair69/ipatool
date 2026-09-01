@@ -79,7 +79,13 @@ func newKeychain(machine machine.Machine, logger log.Logger, interactive bool) k
 				return keychainPassphrase, nil
 			}
 
-			path := strings.Split(s, " unlock ")[1]
+			path := s
+			if beforeUnlock, afterUnlock, found := strings.Cut(s, " unlock "); found {
+				path = afterUnlock
+			} else {
+				// Fallback if prompt format is unexpected
+				path = s
+			}
 			logger.Log().Msgf("enter passphrase to unlock %s (this is separate from your Apple ID password): ", path)
 			bytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 			if err != nil {

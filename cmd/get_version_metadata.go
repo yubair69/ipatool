@@ -20,6 +20,15 @@ func getVersionMetadataCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-version-metadata",
 		Short: "Retrieves the metadata for a specific version of an app",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if appID == 0 && bundleID == "" {
+				return errors.New("either the app ID or the bundle identifier must be specified")
+			}
+			if appID < 0 {
+				return errors.New("app ID must be a positive number")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if appID == 0 && bundleID == "" {
 				return errors.New("either the app ID or the bundle identifier must be specified")

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"errors"
+
 	"github.com/majd/ipatool/v2/pkg/appstore"
 	"github.com/spf13/cobra"
 )
@@ -16,6 +18,12 @@ func searchCmd() *cobra.Command {
 		Use:   "search <term>",
 		Short: "Search for iOS, iPadOS, tvOS, and visionOS apps available on the App Store",
 		Args:  cobra.ExactArgs(1),
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if limit <= 0 {
+				return errors.New("limit must be greater than 0")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			infoResult, err := dependencies.AppStore.AccountInfo()
 			if err != nil {
